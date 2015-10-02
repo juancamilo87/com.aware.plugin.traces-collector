@@ -2,6 +2,7 @@ package com.aware.plugin.tracescollector;
 
 import android.annotation.TargetApi;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
@@ -15,6 +16,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
+import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
 import com.aware.Aware;
@@ -43,7 +45,11 @@ public class Plugin extends Aware_Plugin {
 
     public static final int MESSAGE_READ = 1837;
 
-    private static final String POST_TRACE_URL = "http://pan0166.panoulu.net/queue_estimation/post_trace.php";
+    public static final String NOTI_TYPE = "TYPE";
+
+    public static final String BT_OFF = "BT_OFF";
+
+    public static final String DISCONNECTED = "DISCONNECTED";
 
     public String uuid;
 
@@ -86,6 +92,7 @@ public class Plugin extends Aware_Plugin {
             @Override
             public void onContext() {
                 //Broadcast your context here
+                //TODO: Broadcast values of trace
             }
         };
         context_producer = CONTEXT_PRODUCER;
@@ -112,14 +119,16 @@ public class Plugin extends Aware_Plugin {
         if(!connected())
         {
             Intent notificationIntent = new Intent(HelperActivity.NOTIFICATION_ACTION);
-            sendOrderedBroadcast(notificationIntent, null);
+
             try{
                 mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
                 if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
                     Log.d("BT Connection","Bluetooth is not enabled");
+                    notificationIntent.putExtra(NOTI_TYPE,BT_OFF);
                 }
                 else
                 {
+                    notificationIntent.putExtra(NOTI_TYPE,DISCONNECTED);
                     if(serverAcceptThread != null)
                     {
                         try{
@@ -139,6 +148,7 @@ public class Plugin extends Aware_Plugin {
 
             }catch(Exception e){}
 
+            sendOrderedBroadcast(notificationIntent, null);
         }
         else
         {
@@ -165,6 +175,13 @@ public class Plugin extends Aware_Plugin {
         try{
             serverAcceptThread.cancel();
         }catch(Exception e){}
+
+        NotificationManager mNotifyMgr =
+                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+        int mNotificationId = 13548;
+
+        mNotifyMgr.cancel(mNotificationId);
 
         //Ask AWARE to apply your settings
         //sendBroadcast(new Intent(Aware.ACTION_AWARE_REFRESH));
@@ -415,72 +432,8 @@ public class Plugin extends Aware_Plugin {
 
         context.getContentResolver().insert(Provider.TracesCollector_Data.CONTENT_URI, data);
 
-        new UploadTraceTask(Aware.getSetting(context.getApplicationContext(), Aware_Preferences.DEVICE_ID),
-                tag_1, tag_2, tag_3).execute();
-
         context_producer.onContext();
     }
 
-    private static class UploadTraceTask extends AsyncTask<Void, Void, Void>
-    {
-        private String devideId;
-        private String venueId;
-        private String event;
-        private String other;
 
-        public UploadTraceTask(String devideId, String venueId, String event, String other) {
-            this.devideId = devideId;
-            this.venueId = venueId;
-            this.event = event;
-            this.other = other;
-        }
-
-        @Override
-        protected Void doInBackground(Void... params) {
-
-            JSONObject json = new JSONObject();
-            try
-            {
-                json.put("device_id", devideId);
-                json.put("tag_1", venueId);
-                json.put("tag_2", event);
-                json.put("tag_3", other);
-
-                Log.d("JSON Order", json.toString());
-            }
-            catch(Exception e)
-            {
-                Log.e("Error creating JSON", "JSON could not be created");
-                Log.e("Error Trace post",e.getMessage());
-            }
-
-            String URL = POST_TRACE_URL;
-            HttpClient client = new DefaultHttpClient();
-            HttpPost request = new HttpPost(URL);
-
-            try
-            {
-                AbstractHttpEntity entity = new ByteArrayEntity(json.toString().getBytes("UTF8"));
-                entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-                request.setEntity(entity);
-                HttpResponse response = client.execute(request);
-
-                StatusLine statusLine = response.getStatusLine();
-                int statusCode = statusLine.getStatusCode();
-                if (statusCode == 200) {
-                    Log.d("Traces","Uploaded");
-                }
-                else
-                {
-                    Log.d("Traces","Error uploading");
-                }
-            }
-            catch(Exception e)
-            {
-                Log.e("Error posting traces", "HttpPost failed");
-                Log.e("Error Trace post",e.getMessage());
-            }
-            return null;
-        }
-    }
 }

@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -40,16 +41,26 @@ public class HelperActivity extends Activity implements Plugin.Callbacks{
 
     private Runnable runnable;
 
+    private boolean connecting;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.helper_activity);
+        connecting = false;
 
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         manager.cancel(getIntent().getIntExtra(NOTIFICATION_ID, -1));
 
+        if(getIntent().getStringExtra("ACTION")!=null)
+        {
+                connecting = true;
+                verifyConnected();
+                Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+                discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, TIME_DISCOVERABLE);
 
-
+                startActivityForResult(discoverableIntent, DISCOVERABLE_REQUEST);
+        }
 
         led = (ImageView) findViewById(R.id.helper_led);
         btn_connect = (Button) findViewById(R.id.helper_connect);
@@ -59,6 +70,8 @@ public class HelperActivity extends Activity implements Plugin.Callbacks{
         btn_connect.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                connecting = true;
+                verifyConnected();
                 Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
                 discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, TIME_DISCOVERABLE);
 
@@ -100,6 +113,8 @@ public class HelperActivity extends Activity implements Plugin.Callbacks{
         {
             if(resultCode == TIME_DISCOVERABLE)
             {
+                connecting = true;
+                verifyConnected();
                 Toast.makeText(this, "Made discoverable",Toast.LENGTH_SHORT).show();
                 plugin.startConnection();
 //                finish();
@@ -107,6 +122,8 @@ public class HelperActivity extends Activity implements Plugin.Callbacks{
             }
             if(resultCode == RESULT_CANCELED)
             {
+                connecting = false;
+                verifyConnected();
                 Toast.makeText(this, "Please set the device discoverable",Toast.LENGTH_SHORT).show();
             }
         }
@@ -125,7 +142,8 @@ public class HelperActivity extends Activity implements Plugin.Callbacks{
             Plugin.LocalBinder binder = (Plugin.LocalBinder) service;
             plugin = binder.getServiceInstance(); //Get instance of your service!
             //plugin.registerClient(HelperActivity.this); //Activity register in the service as client for callabcks!
-            Toast.makeText(HelperActivity.this, "Connected to service", Toast.LENGTH_SHORT).show();
+            //Toast.makeText(HelperActivity.this, "Connected to service", Toast.LENGTH_SHORT).show();
+            Log.d("Traces", "Conenected to service");
             verifyConnected();
 //            tvServiceState.setText("Connected to service...");
 //            tbStartTask.setEnabled(true);
@@ -187,20 +205,32 @@ public class HelperActivity extends Activity implements Plugin.Callbacks{
             btn_connect.setEnabled(true);
             if(plugin.connected())
             {
+                connecting = false;
                 led.setImageResource(R.drawable.on_led);
                 btn_connect.setVisibility(View.GONE);
                 btn_close.setVisibility(View.VISIBLE);
+                btn_connect.setText("Connect");
             }
             else
             {
                 led.setImageResource(R.drawable.off_led);
                 btn_connect.setVisibility(View.VISIBLE);
-                btn_connect.setEnabled(true);
                 btn_close.setVisibility(View.GONE);
+                if(connecting)
+                {
+                    btn_connect.setText("Connecting...");
+                    btn_connect.setEnabled(false);
+                }
+                else
+                {
+                    btn_connect.setText("Connect");
+                    btn_connect.setEnabled(true);
+                }
+
             }
         }
-        else
-        {
+        else {
+            btn_connect.setText("Connect");
             led.setImageResource(R.drawable.off_led);
             btn_connect.setVisibility(View.VISIBLE);
             btn_connect.setEnabled(false);
