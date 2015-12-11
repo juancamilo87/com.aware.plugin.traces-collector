@@ -1,41 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.aware.plugin.tracescollector"
-    xmlns:tools="http://schemas.android.com/tools">
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.aware.plugin.tracescollector" >
 
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission android:name="ANDROID.PERMISSION.INTERNET"/>
-    <application android:allowBackup="true" android:label="@string/app_name"
+    <uses-permission android:name="ANDROID.PERMISSION.INTERNET" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
         android:theme="@style/Theme.Aware"
-        tools:replace="android:icon, android:theme"
-        >
-
-
-        <service android:name="com.aware.plugin.tracescollector.Plugin" android:exported="true" />
-        <activity android:name="com.aware.plugin.tracescollector.Settings" android:exported="true" android:theme="@style/Theme.Aware" />
+        tools:replace="android:icon, android:theme" >
+        <service
+            android:name=".Plugin"
+            android:exported="true" />
 
         <activity
-            android:name="com.aware.plugin.tracescollector.HelperActivity"
+            android:name=".Settings"
             android:exported="true"
-            android:theme="@style/Theme.Aware">
+            android:theme="@style/Theme.Aware" />
+        <activity
+            android:name=".HelperActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Aware" >
         </activity>
 
-        <receiver android:name="com.aware.plugin.tracescollector.NotificationReceiver">
+        <receiver android:name=".NotificationReceiver" >
             <intent-filter>
-                <action android:name="com.aware.plugin.tracescollector.notification"/>
+                <action android:name="com.aware.plugin.tracescollector.notification" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".Plugin$ConnectionReceiver" >
+            <intent-filter>
+                <action android:name="ACTION_AWARE_PLUGIN_TRACES_CONNECTION_START" />
+                <action android:name="ACTION_AWARE_PLUGIN_TRACES_CONNECTION_VERIFY" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".Plugin$BluetoothDisconnectReceiver" >
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
+                <action android:name="android.bluetooth.adapter.action.STATE_CHANGED" />
             </intent-filter>
         </receiver>
 
         <provider
-            android:name="com.aware.plugin.tracescollector.Provider"
+            android:name=".Provider"
             android:authorities="${applicationId}.provider.tracescollector"
             android:enabled="true"
             android:exported="true"
             android:readPermission="com.aware.READ_CONTEXT_DATA"
-            android:writePermission="com.aware.WRITE_CONTEXT_DATA">
+            android:writePermission="com.aware.WRITE_CONTEXT_DATA" >
         </provider>
 
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
     </application>
 
 </manifest>

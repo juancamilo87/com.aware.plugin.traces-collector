@@ -5,9 +5,11 @@
         android:defaultValue="false"
         android:persistent="true"
         android:summary="Activate/Deactivate Traces Collector plugin" />
-    <Preference
+    <EditTextPreference
         android:key="bt_uuid_key"
-        android:defaultValue=""
+        android:defaultValue="cfa37877-e7a1-41a8-9673-2b0844b5868f"
         android:persistent="true"
-        android:summary="Unique string (UUID) for the bluetooth connection" />
+        android:title="Unique string (UUID) for the bluetooth connection"
+        android:summary="cfa37877-e7a1-41a8-9673-2b0844b5868f"
+        android:inputType="text"/>
 </PreferenceScreen>

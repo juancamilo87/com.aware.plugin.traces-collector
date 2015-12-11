@@ -23,7 +23,7 @@ import java.util.HashMap;
  */
 public class Provider extends ContentProvider {
 
-    public static final int DATABASE_VERSION = 2;
+    public static final int DATABASE_VERSION = 4;
 
 
     public static String AUTHORITY = "com.aware.plugin.tracescollector.provider.tracescollector";
@@ -48,7 +48,7 @@ public class Provider extends ContentProvider {
         public static final String TAG_3 = "tag_3";
     }
 
-    public static final String DATABASE_NAME = Environment.getExternalStorageDirectory() + "/AWARE/plugin_tracescollector.db";
+    public static final String DATABASE_NAME = "plugin_tracescollector.db";
 
     public static final String[] DATABASE_TABLES = {"plugin_tracescollector"};
 

@@ -64,7 +64,5 @@ public class Settings extends PreferenceActivity implements SharedPreferences.On
             Aware.setSetting(getApplicationContext(), key, sharedPreferences.getString(key, "cfa37877-e7a1-41a8-9673-2b0844b5868f"));
         }
 
-        Intent apply = new Intent(Aware.ACTION_AWARE_REFRESH);
-        sendBroadcast(apply);
     }
 }

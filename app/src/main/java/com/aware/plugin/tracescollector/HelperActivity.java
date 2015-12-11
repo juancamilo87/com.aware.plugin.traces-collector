@@ -4,15 +4,13 @@ import android.app.Activity;
 import android.app.NotificationManager;
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.IBinder;
 import android.os.Looper;
+import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -24,12 +22,12 @@ import android.widget.Toast;
  */
 public class HelperActivity extends Activity implements Plugin.Callbacks{
 
-    public static final int TIME_DISCOVERABLE = 300;
+    public static final int TIME_DISCOVERABLE = 120;
     public static final int DISCOVERABLE_REQUEST = 4;  // The request code
     public static final String NOTIFICATION_ID = "notification_id";
     public static final String NOTIFICATION_ACTION = "com.aware.plugin.tracescollector.notification";
-
-    private Plugin plugin;
+    public static final String ACTION_FROM_NOTIFICATION = "com.aware.plugin.tracescollector.notification.action";
+    public static final String EXTRA_CONNECTION_STATUS = "extra_connected";
 
     private Intent serviceIntent;
 
@@ -52,16 +50,6 @@ public class HelperActivity extends Activity implements Plugin.Callbacks{
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         manager.cancel(getIntent().getIntExtra(NOTIFICATION_ID, -1));
 
-        if(getIntent().getStringExtra("ACTION")!=null)
-        {
-                connecting = true;
-                verifyConnected();
-                Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-                discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, TIME_DISCOVERABLE);
-
-                startActivityForResult(discoverableIntent, DISCOVERABLE_REQUEST);
-        }
-
         led = (ImageView) findViewById(R.id.helper_led);
         btn_connect = (Button) findViewById(R.id.helper_connect);
         btn_close = (Button) findViewById(R.id.helper_close);
@@ -71,7 +59,6 @@ public class HelperActivity extends Activity implements Plugin.Callbacks{
             @Override
             public void onClick(View v) {
                 connecting = true;
-                verifyConnected();
                 Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
                 discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, TIME_DISCOVERABLE);
 
@@ -85,24 +72,55 @@ public class HelperActivity extends Activity implements Plugin.Callbacks{
                 finish();
             }
         });
-
+        btn_connect.setEnabled(false);
         handler = new Handler();
         runnable = new Runnable() {
             @Override
             public void run() {
-                new Handler(Looper.getMainLooper()).post(new Runnable() {
-                    @Override
-                    public void run() {
-                        verifyConnected();
-
-                    }
-                });
+                verifyConnected();
                 handler.postDelayed(this,1000);
-
-
             }
         };
-        handler.post(runnable);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+//        if( getIntent()!=null &&  getIntent().getStringExtra("ACTION")!=null &&
+//                getIntent().getStringExtra("ACTION").equals(EXTRA_CONNECTION_STATUS) ) {
+//            Log.d("Whatever", "Result of verification");
+//            updateUI(getIntent().getBooleanExtra(EXTRA_CONNECTION_STATUS, false));
+//        }
+        if(getIntent()!=null &&  getIntent().getStringExtra("ACTION")!=null &&
+                getIntent().getStringExtra("ACTION").equals("Bluetooth"))
+        {
+            if(!connecting)
+            {
+                connecting = true;
+                Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+                discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, TIME_DISCOVERABLE);
+
+                startActivityForResult(discoverableIntent, DISCOVERABLE_REQUEST);
+            }
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if( intent!=null &&  intent.getStringExtra("ACTION")!=null &&
+                intent.getStringExtra("ACTION").equals(EXTRA_CONNECTION_STATUS) ) {
+            updateUI(intent.getBooleanExtra(EXTRA_CONNECTION_STATUS, false));
+        }
+//        else if(intent!=null &&  intent.getStringExtra("ACTION")!=null &&
+//                intent.getStringExtra("ACTION").equals("Bluetooth"))
+//        {
+//            connecting = true;
+//            Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+//            discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, TIME_DISCOVERABLE);
+//
+//            startActivityForResult(discoverableIntent, DISCOVERABLE_REQUEST);
+//        }
     }
 
     @Override
@@ -114,48 +132,40 @@ public class HelperActivity extends Activity implements Plugin.Callbacks{
             if(resultCode == TIME_DISCOVERABLE)
             {
                 connecting = true;
-                verifyConnected();
+                new Handler().postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        connecting = false;
+                    }
+                }, TIME_DISCOVERABLE * 1000);
                 Toast.makeText(this, "Made discoverable",Toast.LENGTH_SHORT).show();
-                plugin.startConnection();
+//                plugin.startConnection();
 //                finish();
+                NotificationCompat.Builder mBuilder =
+                        new NotificationCompat.Builder(getApplicationContext())
+                                .setSmallIcon(R.drawable.icon_remote_white)
+                                .setContentTitle("Traces Collector")
+                                .setContentText("Bluetooth on");
+                // Sets an ID for the notification
+
+                // Gets an instance of the NotificationManager service
+
+                // Builds the notification and issues it.
+                NotificationManager mNotifyMgr =
+                        (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                mNotifyMgr.notify(Plugin.NOTIFICATION_ID, mBuilder.build());
+                Intent intent = new Intent(Plugin.ACTION_AWARE_PLUGIN_TRACES_CONNECTION_START);
+                sendBroadcast(intent);
 
             }
             if(resultCode == RESULT_CANCELED)
             {
                 connecting = false;
-                verifyConnected();
                 Toast.makeText(this, "Please set the device discoverable",Toast.LENGTH_SHORT).show();
             }
         }
 
     }
-
-
-
-    private ServiceConnection mConnection = new ServiceConnection() {
-
-        @Override
-        public void onServiceConnected(ComponentName className,
-                                       IBinder service) {
-            //Toast.makeText(MainActivity.this, "onServiceConnected called", Toast.LENGTH_SHORT).show();
-            // We've binded to LocalService, cast the IBinder and get LocalService instance
-            Plugin.LocalBinder binder = (Plugin.LocalBinder) service;
-            plugin = binder.getServiceInstance(); //Get instance of your service!
-            //plugin.registerClient(HelperActivity.this); //Activity register in the service as client for callabcks!
-            //Toast.makeText(HelperActivity.this, "Connected to service", Toast.LENGTH_SHORT).show();
-            Log.d("Traces", "Conenected to service");
-            verifyConnected();
-//            tvServiceState.setText("Connected to service...");
-//            tbStartTask.setEnabled(true);
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName arg0) {
-            Toast.makeText(HelperActivity.this, "service disconnected", Toast.LENGTH_SHORT).show();
-//            tvServiceState.setText("Service disconnected");
-//            tbStartTask.setEnabled(false);
-        }
-    };
 
     @Override
     public void updateClient(long data) {
@@ -166,17 +176,14 @@ public class HelperActivity extends Activity implements Plugin.Callbacks{
     protected void onResume() {
         super.onResume();
 
-        serviceIntent = new Intent(HelperActivity.this, Plugin.class);
-        startService(serviceIntent);
-        bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE); //Binding to the service!
-
         handler.removeCallbacks(runnable);
-        handler.post(runnable);
+        handler.postDelayed(runnable, 1000);
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(NOTIFICATION_ACTION);
         filter.setPriority(2);
-        registerReceiver(receiver,filter);
+        registerReceiver(receiver, filter);
+
     }
 
     @Override
@@ -188,60 +195,57 @@ public class HelperActivity extends Activity implements Plugin.Callbacks{
         } catch (Exception e){}
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (mConnection != null) {
-            unbindService(mConnection);
-            mConnection = null;
-        }
-        handler.removeCallbacks(runnable);
-    }
-
     private void verifyConnected()
     {
-        if(plugin != null)
+        Intent intent = new Intent(Plugin.ACTION_AWARE_PLUGIN_TRACES_CONNECTION_VERIFY);
+        sendBroadcast(intent);
+    }
+
+    private void updateUI(boolean connected)
+    {
+        btn_connect.setEnabled(true);
+        if(connected)
         {
-            btn_connect.setEnabled(true);
-            if(plugin.connected())
+            connecting = false;
+            led.setImageResource(R.drawable.on_led);
+            btn_connect.setVisibility(View.GONE);
+            btn_close.setVisibility(View.VISIBLE);
+            btn_connect.setText("Connect");
+        }
+        else
+        {
+            led.setImageResource(R.drawable.off_led);
+            btn_connect.setVisibility(View.VISIBLE);
+            btn_close.setVisibility(View.GONE);
+            if(connecting)
             {
-                connecting = false;
-                led.setImageResource(R.drawable.on_led);
-                btn_connect.setVisibility(View.GONE);
-                btn_close.setVisibility(View.VISIBLE);
-                btn_connect.setText("Connect");
+                btn_connect.setText("Connecting...");
+                btn_connect.setEnabled(false);
             }
             else
             {
-                led.setImageResource(R.drawable.off_led);
-                btn_connect.setVisibility(View.VISIBLE);
-                btn_close.setVisibility(View.GONE);
-                if(connecting)
-                {
-                    btn_connect.setText("Connecting...");
-                    btn_connect.setEnabled(false);
-                }
-                else
-                {
-                    btn_connect.setText("Connect");
-                    btn_connect.setEnabled(true);
-                }
-
+                btn_connect.setText("Connect");
+                btn_connect.setEnabled(true);
             }
-        }
-        else {
-            btn_connect.setText("Connect");
-            led.setImageResource(R.drawable.off_led);
-            btn_connect.setVisibility(View.VISIBLE);
-            btn_connect.setEnabled(false);
-            btn_close.setVisibility(View.GONE);
-        }
 
+        }
     }
 
     private BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            NotificationCompat.Builder mBuilder =
+                    new NotificationCompat.Builder(context.getApplicationContext())
+                            .setSmallIcon(R.drawable.icon_remote_white)
+                            .setContentTitle("Traces Collector")
+                            .setContentText("Your connection got lost. Please connect again.");
+            // Sets an ID for the notification
+
+            // Gets an instance of the NotificationManager service
+            NotificationManager mNotifyMgr =
+                    (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            // Builds the notification and issues it.
+            mNotifyMgr.notify(Plugin.NOTIFICATION_ID, mBuilder.build());
             abortBroadcast();
         }
     };
